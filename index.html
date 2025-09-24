@@ -9,14 +9,27 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body>
+    <div id="api-key-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2>Enter API Key</h2>
+            <p>Please enter your API key for The Cat API to continue.</p>
+            <input type="text" id="api-key-input" placeholder="Enter your key here">
+            <button id="api-key-submit">Save Key</button>
+        </div>
+    </div>
+
     <div class="app-container">
         <header>
             <div>
                 <button id="gallery-btn" class="header-btn"><i class="fas fa-heart"></i></button>
                 <button id="stats-btn" class="header-btn"><i class="fas fa-chart-bar"></i></button>
+                <button id="history-btn" class="header-btn"><i class="fas fa-history"></i></button>
             </div>
             <h1 class="app-title">Cat Tinder</h1>
-            <div class="offline-indicator" id="offline-indicator">Offline</div>
+            <div>
+                <button id="share-btn" class="header-btn"><i class="fas fa-share-square"></i></button>
+                <div class="offline-indicator" id="offline-indicator">Offline</div>
+            </div>
         </header>
 
         <main>
@@ -50,6 +63,16 @@
                 <h2>Statistics</h2>
                 <div id="stats-container">
                     <!-- Stats will be dynamically inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <div id="history-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-btn">&times;</span>
+                <h2>Last Viewed Cats</h2>
+                <div id="history-container" class="gallery-grid">
+                    <!-- History will be dynamically inserted here -->
                 </div>
             </div>
         </div>
