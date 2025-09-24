@@ -19,15 +19,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const card = document.querySelector('.card');
     const loader = document.querySelector('.loader');
     const galleryBtn = document.getElementById('gallery-btn');
-    const modal = document.getElementById('liked-gallery-modal');
-    const closeBtn = document.querySelector('.close-btn');
+    const galleryModal = document.getElementById('liked-gallery-modal');
+    const statsModal = document.getElementById('stats-modal');
+    const closeBtns = document.querySelectorAll('.close-btn');
     const likedCatsContainer = document.getElementById('liked-cats-container');
+    const statsContainer = document.getElementById('stats-container');
+    const statsBtn = document.getElementById('stats-btn');
     const offlineIndicator = document.getElementById('offline-indicator');
 
     const apiKey = 'live_5DxUgA2nXwoVx7EfSZfXdJEcyJesFzLU6jaj8a8RvHKTTvbxGqsoVSGBoqZgkTER';
     const apiUrl = 'https://api.thecatapi.com/v1/images/search';
 
-    let likedCats = JSON.parse(localStorage.getItem('likedCats')) || [];
     let currentCat = null;
 
     async function fetchCat() {
@@ -65,6 +67,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         card.classList.add(`${action}-animation`);
 
+        // Update stats
+        let stats = JSON.parse(localStorage.getItem('catTinderStats')) || { likes: 0, dislikes: 0, superlikes: 0 };
+        if (action === 'like') stats.likes++;
+        else if (action === 'dislike') stats.dislikes++;
+        else if (action === 'superlike') stats.superlikes++;
+        localStorage.setItem('catTinderStats', JSON.stringify(stats));
+
         if (action === 'like' || action === 'superlike') {
             let currentLiked = JSON.parse(localStorage.getItem('likedCats')) || [];
             if (!currentLiked.some(cat => cat.id === currentCat.id)) {
@@ -75,6 +84,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         setTimeout(() => {
             card.classList.remove('like-animation', 'dislike-animation', 'superlike-animation');
+            // Reset card position after animation
+            card.style.transform = '';
             fetchCat();
         }, 500); // Match animation duration
     }
@@ -88,11 +99,22 @@ document.addEventListener('DOMContentLoaded', () => {
             img.alt = 'A liked cat';
             likedCatsContainer.appendChild(img);
         });
-        modal.style.display = 'block';
+        galleryModal.style.display = 'block';
     }
 
-    function closeGallery() {
-        modal.style.display = 'none';
+    function openStats() {
+        const currentStats = JSON.parse(localStorage.getItem('catTinderStats')) || { likes: 0, dislikes: 0, superlikes: 0 };
+        statsContainer.innerHTML = `
+            <p>Cats Liked: ${currentStats.likes}</p>
+            <p>Cats Disliked: ${currentStats.dislikes}</p>
+            <p>Cats Super-Liked: ${currentStats.superlikes}</p>
+        `;
+        statsModal.style.display = 'block';
+    }
+
+    function closeModal() {
+        galleryModal.style.display = 'none';
+        statsModal.style.display = 'none';
     }
 
     function updateOnlineStatus() {
@@ -109,14 +131,42 @@ document.addEventListener('DOMContentLoaded', () => {
     dislikeBtn.addEventListener('click', () => handleAction('dislike'));
     superlikeBtn.addEventListener('click', () => handleAction('superlike'));
     galleryBtn.addEventListener('click', openGallery);
-    closeBtn.addEventListener('click', closeGallery);
+    statsBtn.addEventListener('click', openStats);
+
+    closeBtns.forEach(btn => btn.addEventListener('click', closeModal));
     window.addEventListener('click', (event) => {
-        if (event.target == modal) {
-            closeGallery();
+        if (event.target == galleryModal || event.target == statsModal) {
+            closeModal();
         }
     });
+
     window.addEventListener('online', updateOnlineStatus);
     window.addEventListener('offline', updateOnlineStatus);
+
+
+    // --- Gesture Handling ---
+    const hammer = new Hammer(card);
+
+    hammer.on('pan', (ev) => {
+        if (ev.pointerType === 'touch' || ev.pointerType === 'mouse') {
+            card.style.transition = 'none';
+            card.style.transform = `translate(${ev.deltaX}px, ${ev.deltaY}px) rotate(${ev.deltaX / 20}deg)`;
+        }
+    });
+
+    hammer.on('panend', (ev) => {
+        card.style.transition = 'transform 0.5s ease, opacity 0.5s ease';
+        const swipeThreshold = 100;
+
+        // Reset the transform so the exit animation works correctly
+        card.style.transform = '';
+
+        if (ev.deltaX > swipeThreshold) {
+            handleAction('like');
+        } else if (ev.deltaX < -swipeThreshold) {
+            handleAction('dislike');
+        }
+    });
 
 
     // Initial setup
