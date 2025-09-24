@@ -141,6 +141,20 @@ main {
 .card.dislike-animation { transform: translateX(-150%) rotate(-25deg); opacity: 0; }
 .card.superlike-animation { transform: translateY(-150%) rotate(0deg); opacity: 0; }
 
+/* Dynamic slide-in animations */
+.card.slide-in-left { animation: slideInLeft 0.5s ease-in-out; }
+.card.slide-in-right { animation: slideInRight 0.5s ease-in-out; }
+
+@keyframes slideInLeft {
+    from { transform: translateX(-150%) rotate(-25deg); opacity: 0; }
+    to { transform: translateX(0) rotate(0); opacity: 1; }
+}
+
+@keyframes slideInRight {
+    from { transform: translateX(150%) rotate(25deg); opacity: 0; }
+    to { transform: translateX(0) rotate(0); opacity: 1; }
+}
+
 .loader {
     display: none;
     border: 8px solid #444;

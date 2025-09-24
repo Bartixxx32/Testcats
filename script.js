@@ -19,7 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const galleryModal = document.getElementById('liked-gallery-modal');
     const statsModal = document.getElementById('stats-modal');
     const historyModal = document.getElementById('history-modal');
-    const apiKeyModal = document.getElementById('api-key-modal');
     const closeBtns = document.querySelectorAll('.close-btn');
     const likedCatsContainer = document.getElementById('liked-cats-container');
     const statsContainer = document.getElementById('stats-container');
@@ -27,10 +26,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const statsBtn = document.getElementById('stats-btn');
     const historyBtn = document.getElementById('history-btn');
     const shareBtn = document.getElementById('share-btn');
-    const apiKeyInput = document.getElementById('api-key-input');
-    const apiKeySubmit = document.getElementById('api-key-submit');
     const offlineIndicator = document.getElementById('offline-indicator');
 
+    const apiKey = 'live_5DxUgA2nXwoVx7EfSZfXdJEcyJesFzLU6jaj8a8RvHKTTvbxGqsoVSGBoqZgkTER';
     const apiUrl = 'https://api.thecatapi.com/v1/images/search';
     const PREFETCH_QUEUE_SIZE = 5;
     const MAX_HISTORY_SIZE = 10;
@@ -38,18 +36,27 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentCat = null;
     let prefetchQueue = [];
     let viewHistory = JSON.parse(localStorage.getItem('catTinderHistory')) || [];
-    let apiKey = localStorage.getItem('theCatApiKey');
+    let lastAction = null;
 
     // --- Core Functions ---
 
-    async function fetchNewCat() {
-        if (!apiKey) {
-            console.error("API Key is missing.");
-            return { error: true, message: "API Key is missing." };
+    async function fetchCatById(catId) {
+        try {
+            const response = await fetch(`https://api.thecatapi.com/v1/images/${catId}`, { headers: { 'x-api-key': apiKey } });
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const data = await response.json();
+            const img = new Image();
+            img.src = data.url;
+            return data;
+        } catch (error) {
+            console.error("Failed to fetch cat by ID:", error);
+            return { error: true, message: error.message };
         }
+    }
+
+    async function fetchNewCat() {
         try {
             const response = await fetch(apiUrl, { headers: { 'x-api-key': apiKey } });
-            if (response.status === 401) throw new Error('Invalid API Key.');
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             const data = await response.json();
             const img = new Image();
@@ -87,6 +94,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             catPhoto.src = currentCat.url;
+
+            // Apply dynamic slide-in animation
+            if (lastAction === 'like' || lastAction === 'superlike') {
+                card.classList.add('slide-in-right');
+            } else if (lastAction === 'dislike') {
+                card.classList.add('slide-in-left');
+            }
+
             hideLoader();
             maintainPrefetchQueue();
         } else {
@@ -98,6 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleAction(action) {
         if (!currentCat || currentCat.error) return;
 
+        lastAction = action; // Track the last action
         card.classList.add(`${action}-animation`);
         let stats = JSON.parse(localStorage.getItem('catTinderStats')) || { likes: 0, dislikes: 0, superlikes: 0 };
         if (action === 'like') stats.likes++;
@@ -161,44 +177,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function shareCat() {
         if (!currentCat || currentCat.error) return;
+        const shareUrl = `${window.location.origin}${window.location.pathname}?cat_id=${currentCat.id}`;
         try {
-            const response = await fetch(currentCat.url);
-            const blob = await response.blob();
-            const file = new File([blob], 'cat.jpg', { type: blob.type });
-            const shareData = { title: 'Check out this cute cat!', text: 'I found this adorable cat on Cat Tinder!', files: [file] };
-            if (navigator.share && navigator.canShare(shareData)) {
-                await navigator.share(shareData);
+            if (navigator.share) {
+                await navigator.share({
+                    title: 'Check out this cute cat!',
+                    text: 'I found this adorable cat on Catinder Hardcore!',
+                    url: shareUrl,
+                });
             } else {
-                navigator.clipboard.writeText(currentCat.url).then(() => alert('Sharing not supported, link copied!'), () => alert('Sharing not supported and failed to copy link.'));
+                navigator.clipboard.writeText(shareUrl).then(() => alert('Link copied to clipboard!'), () => alert('Failed to copy link.'));
             }
         } catch (err) {
             console.error('Share failed:', err.message);
-            alert('Could not share cat image.');
-        }
-    }
-
-    function handleApiKeySubmit() {
-        const key = apiKeyInput.value.trim();
-        if (key) {
-            localStorage.setItem('theCatApiKey', key);
-            apiKey = key;
-            apiKeyModal.style.display = 'none';
-            initializeApp();
+            alert('Could not share cat.');
         }
     }
 
     // --- Initial Setup ---
-    function initializeApp() {
-        if (!apiKey) {
-            apiKeyModal.style.display = 'flex';
-        } else {
-            showLoader();
-            updateOnlineStatus();
-            maintainPrefetchQueue().then(showNextCat);
+    async function initializeApp() {
+        showLoader();
+        updateOnlineStatus();
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const sharedCatId = urlParams.get('cat_id');
+
+        if (sharedCatId) {
+            const sharedCat = await fetchCatById(sharedCatId);
+            if (sharedCat && !sharedCat.error) {
+                prefetchQueue.unshift(sharedCat); // Put the shared cat at the front of the queue
+            }
         }
+
+        await maintainPrefetchQueue();
+        showNextCat();
     }
 
     // --- Event Listeners and Gesture Handling ---
+    card.addEventListener('animationend', () => {
+        card.classList.remove('slide-in-left', 'slide-in-right');
+    });
     likeBtn.addEventListener('click', () => handleAction('like'));
     dislikeBtn.addEventListener('click', () => handleAction('dislike'));
     superlikeBtn.addEventListener('click', () => handleAction('superlike'));
@@ -206,7 +224,6 @@ document.addEventListener('DOMContentLoaded', () => {
     statsBtn.addEventListener('click', openStats);
     historyBtn.addEventListener('click', openHistory);
     shareBtn.addEventListener('click', shareCat);
-    apiKeySubmit.addEventListener('click', handleApiKeySubmit);
 
     closeBtns.forEach(btn => btn.addEventListener('click', closeModal));
     window.addEventListener('click', (event) => {
